@@ -77,6 +77,10 @@ trap(struct trapframe *tf)
             cpu->id, tf->cs, tf->eip);
     lapiceoi();
     break;
+  case T_PGFLT:
+    cprintf("pid %d %s: Page fault--access to invalid address. Killing process...\n", proc->pid, proc->name);
+    proc->killed = 1;
+    break;
    
   //PAGEBREAK: 13
   default:

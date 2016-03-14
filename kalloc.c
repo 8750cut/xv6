@@ -56,7 +56,7 @@ freerange(void *vstart, void *vend)
   char *p;
   p = (char*)PGROUNDUP((uint)vstart);
   for(; p + PGSIZE <= (char*)vend; p += PGSIZE)
-    kfree(p);
+    _kfree(p);
 }
 
 //PAGEBREAK: 21
@@ -78,7 +78,26 @@ kfree(char *v)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = &kmem.runs[(V2P(v) / PGSIZE)];
-  assert(r->ref == 1 && "Page cannot be freed when it is not already allocated.");
+  //assert(r->ref == 1 && "Page cannot be freed when it is not already allocated.");
+  r->next = kmem.freelist;
+  r->ref = 0;
+  kmem.freelist = r;
+  if(kmem.use_lock)
+    release(&kmem.lock);
+}
+
+void
+_kfree(char *v){
+  struct run *r;
+
+  if((uint)v % PGSIZE || v < end || v2p(v) >= PHYSTOP)
+    panic("kfree");
+
+  memset(v, 1, PGSIZE);
+
+  if(kmem.use_lock)
+    acquire(&kmem.lock);
+  r = &kmem.runs[(V2P(v) / PGSIZE)];
   r->next = kmem.freelist;
   r->ref = 0;
   kmem.freelist = r;
