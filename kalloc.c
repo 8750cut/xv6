@@ -78,6 +78,7 @@ kfree(char *v)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = &kmem.runs[(V2P(v) / PGSIZE)];
+  assert(r->ref == 1 && "Page cannot be freed when it is not already allocated.");
   r->next = kmem.freelist;
   r->ref = 0;
   kmem.freelist = r;
@@ -114,8 +115,8 @@ kinc(char *v)
 
   if(kmem.use_lock)
     acquire(&kmem.lock);
-  r = (struct run*)v;
-  r->ref = r->ref + 1;
+  r = &kmem.runs[(V2P(v) / PGSIZE)];
+  r->ref += 1;
   if(kmem.use_lock)
     release(&kmem.lock);
 }
@@ -127,8 +128,8 @@ kdec(char *v)
 
   if(kmem.use_lock)
     acquire(&kmem.lock);
-  r = (struct run*)v;
-  r->ref = r->ref - 1;
+  r = &kmem.runs[(V2P(v) / PGSIZE)];
+  r->ref -= 1;
   if(kmem.use_lock)
     release(&kmem.lock);
 }
