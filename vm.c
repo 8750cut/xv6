@@ -304,6 +304,38 @@ clearpteu(pde_t *pgdir, char *uva)
   *pte &= ~PTE_U;
 }
 
+pde_t*
+cowuvm(pde_t *pgdir, uint sz)
+{
+  pde_t *d;
+  pte_t *pte;
+  uint pa, i, flags;
+
+  if((d = setupkvm()) == 0)
+    return 0;
+
+  for(i = 0; i < sz; i += PGSIZE) {
+    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+      panic("cowuv: pte should exist");
+    if(!(*pte & PTE_P))
+      panic("cowuv: page not present");
+    *pte &= PTE_COW;
+    *pte &= ~PTE_W;
+    pa = PTE_ADDR(*pte);
+    flags =PTE_FLAGS(*pte);
+    if(mappages(d, (void *) i, PGSIZE, pa, flags) < 0)
+       goto bad;
+
+    kinc((char *)pte);
+  }
+
+  return d;
+
+bad:
+  freevm(d);
+  return 0;
+}
+
 // Given a parent process's page table, create a copy
 // of it for a child.
 pde_t*
@@ -335,6 +367,8 @@ bad:
   freevm(d);
   return 0;
 }
+
+
 
 //PAGEBREAK!
 // Map user virtual address to kernel address.

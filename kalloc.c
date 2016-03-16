@@ -78,6 +78,10 @@ kfree(char *v)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = &kmem.runs[(V2P(v) / PGSIZE)];
+
+  if(r->ref != 1)
+    exit();
+
   //assert(r->ref == 1 && "Page cannot be freed when it is not already allocated.");
   r->next = kmem.freelist;
   r->ref = 0;
