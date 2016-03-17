@@ -327,6 +327,7 @@ cowuvm(pde_t *pgdir, uint sz)
        goto bad;
 
     kinc((char *)pte);
+    invlpg(*pte);
   }
 
   return d;
@@ -368,7 +369,17 @@ bad:
   return 0;
 }
 
+void
+pagefault(uint err)
+{
+  // fault is not for user address
+  if(proc == 0){
+    cprintf("unexpected pagefault from cpu %d eip %x (cr2=0x%x)\n", cpu->id, tf->eip, rcr2());
+    panic("pagefault");
+  }
 
+  
+}
 
 //PAGEBREAK!
 // Map user virtual address to kernel address.

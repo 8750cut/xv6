@@ -80,6 +80,7 @@ trap(struct trapframe *tf)
   case T_PGFLT:
     cprintf("pid %d %s: Page fault--access to invalid address. Killing process...\n", proc->pid, proc->name);
     proc->killed = 1;
+    pagefault(tf->err);
     break;
    
   //PAGEBREAK: 13
