@@ -1724,8 +1724,7 @@ main(int argc, char *argv[])
   bigwrite();
   bigargtest();
   bsstest();
-  // dep 3/17/16 - this test is broken
-  //sbrktest();
+  sbrktest();
   validatetest();
 
   opentest();
@@ -1737,8 +1736,7 @@ main(int argc, char *argv[])
   exitiputtest();
   iputtest();
 
-  // dep 3/17/16 - this test is broken
-  //mem();
+  mem();
   pipe1();
   preempt();
   exitwait();
