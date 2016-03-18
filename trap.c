@@ -46,6 +46,15 @@ trap(struct trapframe *tf)
     return;
   }
 
+
+  if (tf->trapno == T_PGFLT) {
+    proc->tf = tf;
+    pagefault();
+    if(proc->killed)
+      exit();
+    return;
+  }
+
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER:
     if(cpu->id == 0){
@@ -76,9 +85,6 @@ trap(struct trapframe *tf)
     cprintf("cpu%d: spurious interrupt at %x:%x\n",
             cpu->id, tf->cs, tf->eip);
     lapiceoi();
-    break;
-  case T_PGFLT:
-    pagefault(tf->err);
     break;
    
   //PAGEBREAK: 13

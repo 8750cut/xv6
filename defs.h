@@ -70,6 +70,7 @@ void            kinit1(void*, void*);
 void            kinit2(void*, void*);
 void            kinc(char*);
 void            kdec(char*);
+int 			getRefs(char*);
 
 // kbd.c
 void            kbdintr(void);
@@ -182,7 +183,7 @@ void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 pde_t*			cowuvm(pde_t*, uint);
-void 			pagefault(uint);
+void 			pagefault();
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

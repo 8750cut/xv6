@@ -156,3 +156,12 @@ kdec(char *v)
   if(kmem.use_lock)
     release(&kmem.lock);
 }
+
+int
+getRefs(char *v)
+{
+  struct run *r;
+
+  r = &kmem.runs[(V2P(v) / PGSIZE)];
+  return r->ref;
+}
