@@ -127,7 +127,7 @@ kalloc(void)
   }
   if(kmem.use_lock)
     release(&kmem.lock);
-  rv = P2V((r - kmem.runs) * PGSIZE);
+  rv = r ? P2V((r - kmem.runs) * PGSIZE) : r;
   return rv;
 }
 
