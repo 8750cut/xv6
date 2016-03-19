@@ -29,6 +29,8 @@ Implementation approach:
        To solve this we keep track of how many processes are using the page and only
        release it to the kernel if on other process is using it.
 
+Unit tests added:
+  1. childwrite - this unit test checks if a child process gets the copy of the file descriptor created in the parent process. The child writes to this file descriptor and checks if the parent gets the changes written to the file that the child wrote, and the parents adds on to this file. The result of this can be seen by using the command "cat sharedfile". The result shows that the child wrote "child " and the parent wrote "test\n".
 
 Files modified:
 
@@ -44,7 +46,7 @@ Files added:
 
 pgflt-test.c
 COW-READONLY
-
+unittests.c
 
 
  
