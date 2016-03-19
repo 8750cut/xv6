@@ -16,7 +16,7 @@ extern char end[]; // first address after kernel loaded from ELF file
 
 struct run {
   struct run *next;
-  int ref;
+  uint ref;
 };
 
 
@@ -155,4 +155,11 @@ kdec(char *v)
   r->ref -= 1;
   if(kmem.use_lock)
     release(&kmem.lock);
+}
+
+uint
+ref_count(uint va)
+{
+  struct run *r = &kmem.runs[(V2P(va)/PGSIZE)];
+  return r->ref;
 }

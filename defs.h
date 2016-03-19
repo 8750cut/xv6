@@ -82,6 +82,7 @@ void            lapiceoi(void);
 void            lapicinit(void);
 void            lapicstartap(uchar, uint);
 void            microdelay(int);
+uint		ref_count(uint);
 
 // log.c
 void            initlog(int dev);
@@ -181,8 +182,8 @@ void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
-pde_t*			cowuvm(pde_t*, uint);
-void 			pagefault(uint);
+pde_t*		cowuvm(pde_t*, uint);
+void 		handle_pagefault(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

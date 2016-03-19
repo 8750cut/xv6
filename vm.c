@@ -89,32 +89,6 @@ mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm)
   return 0;
 }
 
-static int
-_mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm)
-{
-  char *a, *mem;
-  pte_t *pte;
-  uint npa;
-  
-  a = (char*)PGROUNDDOWN((uint)va);
-  
-  if((pte = walkpgdir(pgdir, a, 1)) == 0)
-    return -1;
-  if(*pte & PTE_P)
-    panic("remap");
-
-  mem = kalloc();
-
-  // Copies memory from the virtual address gotten from pa and copies PGSIZE bytes to mem
-  memmove(mem, (char*)p2v(pa), PGSIZE);
-  
-  npa = v2p(mem);
-
-  *pte = npa | perm | PTE_P;
-  
-  return 0;
-}
-
 // There is one page table per process, plus one that's used when
 // a CPU is not running any process (kpgdir). The kernel uses the
 // current process's page table during system calls and interrupts;
@@ -337,23 +311,30 @@ cowuvm(pde_t *pgdir, uint sz)
   pte_t *pte;
   uint pa, i, flags;
 
+  // Map the kernel to the child process
+  // d -> page directory for the child process
   if((d = setupkvm()) == 0)
     return 0;
 
+  // For each page:
   for(i = 0; i < sz; i += PGSIZE) {
-    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+    // Read parent's page table entry
+    // This consists of the address of the physical frame and the protection bits
+    if((pte = walkpgdir(pgdir, (void*)i, 0)) == 0)
       panic("cowuv: pte should exist");
     if(!(*pte & PTE_P))
       panic("cowuv: page not present");
+
+    // Map the parent's physical frame READ-ONLY in both th parent and the child
     *pte |= PTE_COW;
     *pte &= ~PTE_W;
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
-    if(_mappages(d, (void *) i, PGSIZE, pa, flags) < 0)
+    if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
        goto bad;
 
-    kinc((char *)pte);
-    invlpg((void *) i);
+    kinc(p2v(pa));
+    invlpg((void *)i);
   }
 
   return d;
@@ -396,39 +377,49 @@ bad:
 }
 
 void
-pagefault(uint err)
+handle_pagefault(void)
 {
   pte_t *pte;
+  uint pa;
+  char *mem;
+
+  // Read faulting address
   uint va = rcr2();
 
-  // fault is not for user address
-  if(va >= KERNBASE || (pte = walkpgdir(proc->pgdir, (void*)va, 0)) == 0){
+  // Get physical address of the currently mapped physical frame from the page table
+  if(va >= KERNBASE || (pte = walkpgdir(proc->pgdir, (char*)PGROUNDDOWN((uint)va), 0)) == 0) {
+    // Fault is not for user address
     cprintf("pid %d %s: Page fault--access to invalid address.\n", proc->pid, proc->name);
     proc->killed = 1;
-    panic("page fault");
     return;
   }
 
-  // write fault for a user address
-  if(err & FEC_WR){
-    // allocate new page
-
-    // Copy the content of the faulting page to the new page
-
-    // Add the new page to the page table (refcount++)
-
-    // The old page refcount--
-
-    // Invalidate TLB
-  } else{
-    // Check if the fault is for an address whose page table includes the PTE_COW flag
-    // If not, kill the program as usual
-    if(!(*pte & PTE_COW)){
+  // Write fault for a user address
+  if(proc->tf->err & FEC_WR) {
+    if(!(*pte & PTE_COW)) {
       proc->killed = 1;
       return;
     } else {
-      
+      pa = PTE_ADDR(*pte);
+
+      if(ref_count(*pte) > 1) {
+        // Clone frame into a new page
+        mem = kalloc();
+
+        *pte = v2p(mem) | PTE_FLAGS(*pte) | PTE_P | PTE_W;
+	memmove(mem, (char*)p2v(pa), PGSIZE);
+
+	invlpg((void*)va);
+	kdec((void*)pte);
+      } else {
+	*pte |= PTE_W;
+	*pte &= ~PTE_COW;
+	invlpg((void*)va);
+      }
     }
+  } else {
+      proc->killed = 1;
+      return;
   }
 }
 
