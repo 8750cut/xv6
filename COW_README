@@ -1,0 +1,50 @@
+Notes on copy-on-write fork:
+
+  Like copyuvm, cowuvm maps the kernel to the child. But it doesn't clone
+the user mode memory. Instead it maps the parent's physical frame read-only
+in both the parent and the child.
+
+Implementation approach:
+
+  1. Added a page table flag PTE_COW 0x800
+  2. Created a method, cowuvm, to replace xv6's default copyuvm
+    a. Map the parent's physical frame read-only and PTE_COW in both the parent 
+       and the child.
+       We do this by clearing the PTE_W flag and setting PTE_COW in the pte of 
+       the parent and child.
+    b. Increment page reference (explained in 5)
+    c. Flush TLB
+  3. When either the parent or child tries to write to memory, which is read only,
+     the CPU will raise a page fault exception.
+  4. Created a method, pagefault, to handle write page faults
+    a. Get a hold of the faulting address thats in cr2
+    b. Get the physical address of the currently mapped physical frame from the
+       page table and clone the framte into a new page
+    c. Map the new page into the current process writatle and flush TLB
+    d. Increment page ref of the current process and decrement from parent process
+  5. Changed deallocuvm to only free page if only 1 process references it.
+    a. This is to avoid problems when 2 processes share a page, for example,
+       process A and B, and process A exists before B does. xv6 will reclaim the
+       shared memory. If B tries to then modify memory, this will lead into problems.
+       To solve this we keep track of how many processes are using the page and only
+       release it to the kernel if on other process is using it.
+
+
+Files modified:
+
+mmu.h
+defs.h
+kalloc.c
+trap.c
+proc.c
+vm.c
+Makefile 
+
+Files added:
+
+pgflt-test.c
+COW-READONLY
+
+
+
+ 
