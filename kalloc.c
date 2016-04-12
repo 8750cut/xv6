@@ -157,9 +157,20 @@ kdec(char *v)
     release(&kmem.lock);
 }
 
+<<<<<<< HEAD
 uint
 ref_count(char* va)
 {
   struct run *r = &kmem.runs[(V2P(va)/PGSIZE)];
   return r->ref;
 }
+=======
+int
+getRefs(char *v)
+{
+  struct run *r;
+
+  r = &kmem.runs[(V2P(v) / PGSIZE)];
+  return r->ref;
+}
+>>>>>>> 7121f73f23bd810feba836de191175ef5a208645

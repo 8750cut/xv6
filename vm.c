@@ -265,7 +265,12 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       if(pa == 0)
         panic("kfree");
       char *v = p2v(pa);
+<<<<<<< HEAD
       if(ref_count(v) == 1)
+=======
+
+      if(getRefs(v) == 1)
+>>>>>>> 7121f73f23bd810feba836de191175ef5a208645
         kfree(v);
       else
         kdec(v);
@@ -307,6 +312,7 @@ clearpteu(pde_t *pgdir, char *uva)
   *pte &= ~PTE_U;
 }
 
+// 
 pde_t*
 cowuvm(pde_t *pgdir, uint sz)
 {
@@ -333,11 +339,20 @@ cowuvm(pde_t *pgdir, uint sz)
     *pte &= ~PTE_W;
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
+<<<<<<< HEAD
     if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
        goto bad;
 
     kinc(p2v(pa));
     invlpg((void *)i);
+=======
+    if(mappages(d, (void *) i, PGSIZE, pa, flags) < 0)
+       goto bad;
+
+    char *v = p2v(pa);
+    kinc(v);
+    invlpg((void *) i);
+>>>>>>> 7121f73f23bd810feba836de191175ef5a208645
   }
 
   return d;
@@ -380,6 +395,7 @@ bad:
 }
 
 void
+<<<<<<< HEAD
 handle_pagefault(void)
 {
   pte_t *pte;
@@ -390,11 +406,25 @@ handle_pagefault(void)
   va = rcr2();
 
   if(va >= KERNBASE || (pte = walkpgdir(proc->pgdir, (char*)PGROUNDDOWN((uint)va), 0)) == 0){
+=======
+pagefault()
+{
+  pte_t *pte;
+  uint pa, npa, va = rcr2(), er = proc->tf->err, flags;
+  char *mem;
+
+  // Obtain the start of the page that the faulty virtual address belongs to
+  char *a = (char*)PGROUNDDOWN((uint)va);
+
+  // fault is not for user address - kill process
+  if(va >= KERNBASE || (pte = walkpgdir(proc->pgdir, a, 0)) == 0){
+>>>>>>> 7121f73f23bd810feba836de191175ef5a208645
     cprintf("pid %d %s: Page fault--access to invalid address.\n", proc->pid, proc->name);
     proc->killed = 1;
     return;
   }
 
+<<<<<<< HEAD
   // Is it a write fault?
   // or fault is for an address whose page table includes the PTE_COW flag?
   // If not, kill the program as usual
@@ -426,6 +456,53 @@ handle_pagefault(void)
     *pte |= PTE_W;
     *pte &= ~PTE_COW;
     invlpg((void *)va);
+=======
+  // write fault for a user address
+  if(er & FEC_WR){
+    // Check if the fault is for an address whose page table includes the PTE_COW flag
+    // If not, kill the program as usual
+    if(!(*pte & PTE_COW)){
+      proc->killed = 1;
+      return;
+    } else {
+      pa = PTE_ADDR(*pte);
+      char *v = p2v(pa);
+      flags = PTE_FLAGS(*pte);
+
+      // get reference count for faulty page
+      int refs = getRefs(v);
+
+      // page has more than one reference
+      if(refs > 1){
+        // allocate a new page
+        mem = kalloc();
+
+        // Copies memory from the virtual address gotten from fauly pte and copies PGSIZE bytes to mem
+        memmove(mem, v, PGSIZE);
+
+        // virtual address for new page
+        npa = v2p(mem);
+        // Point the PTE pointer to the newly allocated page
+        *pte = npa | flags | PTE_P | PTE_W;
+
+        // invalidate TLB
+        invlpg((void *)va);
+
+        // decrement ref count for old page
+        kdec(v);
+      }
+      // page has only one reference
+      else {
+        *pte |= PTE_W;
+        *pte &= ~PTE_COW;
+
+        invlpg((void *)va);
+      }
+    }
+  } else{ // not a write fault
+    proc->killed = 1;
+    return;
+>>>>>>> 7121f73f23bd810feba836de191175ef5a208645
   }
 }
 

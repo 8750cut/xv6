@@ -46,6 +46,15 @@ trap(struct trapframe *tf)
     return;
   }
 
+
+  if (tf->trapno == T_PGFLT) {
+    proc->tf = tf;
+    pagefault();
+    if(proc->killed)
+      exit();
+    return;
+  }
+
   switch(tf->trapno){
   case T_PGFLT:
     proc->tf = tf;
@@ -81,7 +90,11 @@ trap(struct trapframe *tf)
             cpu->id, tf->cs, tf->eip);
     lapiceoi();
     break;
+<<<<<<< HEAD
 
+=======
+   
+>>>>>>> 7121f73f23bd810feba836de191175ef5a208645
   //PAGEBREAK: 13
   default:
     if(proc == 0 || (tf->cs&3) == 0){
