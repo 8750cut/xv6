@@ -47,6 +47,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->priority = 0;
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -143,6 +144,7 @@ fork(void)
     return -1;
   }
   np->sz = proc->sz;
+  np->priority = proc->priority;
   np->parent = proc;
   *np->tf = *proc->tf;
 
@@ -463,4 +465,18 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+int
+nice(int incr)
+{
+  if(incr == 0)
+    return proc->priority;
+
+  if(((proc->priority+incr) <= N_MAX) && (proc->priority+incr) >= N_MIN) {
+    proc->priority += incr;
+    return 0;
+  }
+
+  return -1;
 }

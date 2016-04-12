@@ -1,0 +1,17 @@
+EXERCISE 1
+To run the test for this exercise, you have to run the nicetest program. To do this, we did a 'make qemu-nox' to run the kernel. Once the kernel is running, we used the 'nicetest' command to run the tests for correctly reading and setting a process's nice value. 
+
+Files modified:
+	- Makefile - Added the nicetest program command
+	- proc.c - We added a nice(int inc) function to change and return the nice priority value for a process. It takes in an argument of type int that changes the current process' priority. If the argument is 0, it will return the current priority. Else, it will return 0 on success or -1 if it is out-of-range. We also set the default priority for a newly allocated process to be 0 in allocproc(), and modified fork() to give a child process the same priority of the parent (a child's priorty does not change when a parent's is changed after forking and vice versa). 
+	- proc.h - added priority to proc struct
+	- sysproc.c - added the sys_nice(void) system call that gets the argument of type int and passes it to the nice(int) function in proc.c
+	- param.h - added N_MIN and N_MAX for the minimum and maximum nice range values -19 and +20, respectively. 
+	- defs.h - added the int nice(int) function definition
+	- syscall.c - added extern int sys_nice(void) and [SYS_nice] sys_nice
+	- syscall.h - defined the nice syscall number (23)
+	- user.h - defined the nice(int) function that can be called through the shell
+	- usys.S - added SYSCALL(nice)
+
+Files added:
+	- nicetest.c - This file contains test cases to verify that the nice system call can set and be read back correctly. nice(0) should return a process' current priorty. Any other argument to nice(int incr) will adjust a process' priority. A process can have a priority of [-20, 19] and a default value of 0. If the argument for nice() is out of that range, it will return -1. Since a priority can also have a value of -1, you have to call nice(0) afterwards to get the current value - if nice(0) does not equal -1, then there was a error with the argument passed in or the nice priority value was out-of-range.
