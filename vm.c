@@ -265,7 +265,10 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       if(pa == 0)
         panic("kfree");
       char *v = p2v(pa);
-      kfree(v);
+      if(ref_count(v) == 1)
+        kfree(v);
+      else
+        kdec(v);
       *pte = 0;
     }
   }
@@ -380,46 +383,49 @@ void
 handle_pagefault(void)
 {
   pte_t *pte;
-  uint pa;
+  uint pa, va;
   char *mem;
 
   // Read faulting address
-  uint va = rcr2();
+  va = rcr2();
 
-  // Get physical address of the currently mapped physical frame from the page table
-  if(va >= KERNBASE || (pte = walkpgdir(proc->pgdir, (char*)PGROUNDDOWN((uint)va), 0)) == 0) {
-    // Fault is not for user address
+  if(va >= KERNBASE || (pte = walkpgdir(proc->pgdir, (char*)PGROUNDDOWN((uint)va), 0)) == 0){
     cprintf("pid %d %s: Page fault--access to invalid address.\n", proc->pid, proc->name);
     proc->killed = 1;
     return;
   }
 
-  // Write fault for a user address
-  if(proc->tf->err & FEC_WR) {
-    if(!(*pte & PTE_COW)) {
-      proc->killed = 1;
-      return;
-    } else {
-      pa = PTE_ADDR(*pte);
+  // Is it a write fault?
+  // or fault is for an address whose page table includes the PTE_COW flag?
+  // If not, kill the program as usual
+  if(!(proc->tf->err & FEC_WR) || !(*pte & PTE_COW)) {
+    proc->killed = 1;
+    return;
+  }
 
-      if(ref_count(*pte) > 1) {
-        // Clone frame into a new page
-        mem = kalloc();
+  // Get physical address of the currently mapped physical frame from the page table
+  pa = PTE_ADDR(*pte);
 
-        *pte = v2p(mem) | PTE_FLAGS(*pte) | PTE_P | PTE_W;
-	memmove(mem, (char*)p2v(pa), PGSIZE);
+  // page has more than one reference
+  if(ref_count(p2v(pa)) > 1) {
+    // allocate a new page
+    mem = kalloc();
 
-	invlpg((void*)va);
-	kdec((void*)pte);
-      } else {
-	*pte |= PTE_W;
-	*pte &= ~PTE_COW;
-	invlpg((void*)va);
-      }
-    }
-  } else {
-      proc->killed = 1;
-      return;
+    // Copies memory from the virtual address gotten from fauly pte and copies PGSIZE bytes to mem
+    memmove(mem, p2v(pa), PGSIZE);
+
+    // Point the PTE pointer to the newly allocated page
+    *pte = v2p(mem) | PTE_FLAGS(*pte) | PTE_P | PTE_W;
+
+    // invalidate TLB
+    invlpg((void *)va);
+
+    // decrement ref count for old page
+    kdec(p2v(pa));
+  } else {  // page has only one reference
+    *pte |= PTE_W;
+    *pte &= ~PTE_COW;
+    invlpg((void *)va);
   }
 }
 

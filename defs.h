@@ -70,6 +70,7 @@ void            kinit1(void*, void*);
 void            kinit2(void*, void*);
 void            kinc(char*);
 void            kdec(char*);
+uint		ref_count(char*);
 
 // kbd.c
 void            kbdintr(void);
@@ -82,7 +83,6 @@ void            lapiceoi(void);
 void            lapicinit(void);
 void            lapicstartap(uchar, uint);
 void            microdelay(int);
-uint		ref_count(uint);
 
 // log.c
 void            initlog(int dev);
