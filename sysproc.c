@@ -100,3 +100,9 @@ sys_nice(void)
 
   return nice(incr);
 }
+
+uint
+sys_random(void)
+{
+  return random();
+}

@@ -25,6 +25,7 @@ int sleep(int);
 int uptime(void);
 int wolfie(void*, uint); // char*, int
 int nice(int);
+uint random(void);
 
 // ulib.c
 int stat(char*, struct stat*);
