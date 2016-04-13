@@ -20,6 +20,8 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+int gtickets = 0;
+
 void
 pinit(void)
 {
@@ -48,6 +50,9 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   p->priority = 0;
+  p->tickets = 40 - (p->priority + 20);
+  gtickets += p->tickets;
+  p->run_times = 0;
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -194,6 +199,7 @@ exit(void)
   proc->cwd = 0;
 
   acquire(&ptable.lock);
+  gtickets -= proc->tickets;
 
   // Parent might be sleeping in wait().
   wakeup1(proc->parent);
@@ -268,30 +274,73 @@ void
 scheduler(void)
 {
   struct proc *p;
+  int t_selected, counter;
 
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
+    counter = 0;
+    t_selected = -1;
+
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+    // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    //   if(p->state != RUNNABLE)
+    //     continue;
+
+    //   // Switch to chosen process.  It is the process's job
+    //   // to release ptable.lock and then reacquire it
+    //   // before jumping back to us.
+    //   proc = p;
+    //   switchuvm(p);
+    //   p->state = RUNNING;
+    //   swtch(&cpu->scheduler, proc->context);
+    //   switchkvm();
+
+    //   // Process is done running for now.
+    //   // It should have changed its p->state before coming back.
+    //   proc = 0;
+    // }
+
+    // loop through process table looking for winning ticket
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
+    	// only check for runnable process
+    	// the currently running process is not yieled because of
+    	// timer interrupt so it is in RUNNABLE state now
+    	if(p->state != RUNNABLE)
+        	continue;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      swtch(&cpu->scheduler, proc->context);
-      switchkvm();
+        // if ticket was previously selected, pick a new ticket
+        if(t_selected == -1)
+        	t_selected = random() % gtickets;
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      proc = 0;
+        // keep count of tickets we looked through
+	  	counter += p->tickets;
+
+	  	// ticket found
+	  	if(counter >= t_selected){
+	  		// set ticket to be found
+	  		t_selected = -1;
+	  		// Switch to chosen process.  It is the process's job
+	      	// to release ptable.lock and then reacquire it
+	      	// before jumping back to us.
+	      	proc = p;
+	      	switchuvm(p);
+	      	p->state = RUNNING;
+	      	p->run_times++;
+	      	swtch(&cpu->scheduler, proc->context);
+	      	switchkvm();
+
+	      	// Process is done running for now.
+	      	// It should have changed its p->state before coming back.
+	      	proc = 0;
+
+	      	// break out of loop and hold lottery again
+	      	break;
+	  	}
     }
+
     release(&ptable.lock);
 
   }
@@ -373,6 +422,7 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   proc->chan = chan;
   proc->state = SLEEPING;
+  gtickets -= proc->tickets;
   sched();
 
   // Tidy up.
@@ -394,8 +444,10 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+    if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
+      gtickets += p->tickets;
+    }
 }
 
 // Wake up all processes sleeping on chan.
@@ -457,7 +509,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
+    cprintf("%d %s %s %d %d", p->pid, state, p->name, p->tickets, p->run_times);
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)
@@ -475,6 +527,7 @@ nice(int incr)
 
   if(((proc->priority+incr) <= N_MAX) && (proc->priority+incr) >= N_MIN) {
     proc->priority += incr;
+    proc->tickets = 40 - (proc->priority + 20);
     return 0;
   }
 
