@@ -215,6 +215,7 @@ exit(void)
 
   // Jump into the scheduler, never to return.
   proc->state = ZOMBIE;
+  gtickets -= proc->tickets;
   sched();
   panic("zombie exit");
 }
@@ -422,7 +423,7 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   proc->chan = chan;
   proc->state = SLEEPING;
-  gtickets -= proc->tickets;
+  // gtickets -= proc->tickets;
   sched();
 
   // Tidy up.
