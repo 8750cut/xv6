@@ -1,4 +1,6 @@
+-----------------------------
 EXERCISE 1
+-----------------------------
 To run the test for this exercise, you have to run the nicetest program. To do this, we did a 'make qemu-nox' to run the kernel. Once the kernel is running, we used the 'nicetest' command to run the tests for correctly reading and setting a process's nice value. 
 
 Files modified:
@@ -15,3 +17,34 @@ Files modified:
 
 Files added:
 	- nicetest.c - This file contains test cases to verify that the nice system call can set and be read back correctly. nice(0) should return a process' current priorty. Any other argument to nice(int incr) will adjust a process' priority. A process can have a priority of [-20, 19] and a default value of 0. If the argument for nice() is out of that range, it will return -1. Since a priority can also have a value of -1, you have to call nice(0) afterwards to get the current value - if nice(0) does not equal -1, then there was a error with the argument passed in or the nice priority value was out-of-range.
+
+
+-----------------------------
+EXERCISE 2
+-----------------------------
+
+
+-----------------------------
+EXERCISE 3
+-----------------------------
+Details about the implementation of our lottery scheduler is described below in the file modification descriptions.
+
+Files modified:
+	- proc.c - Removed round-robin implementation in scheduler(void). To implement the lottery scheduler in this function, it loops through the process table looking for a runnable process. The ticket selected from the lottery is stored in t_selected. If a ticket wasn't already chosen, we pick a new ticket. We add the number of tickets to the counter (that is set to zero at the beginning of the lottery selection). If the counter is greater than or equal to t_selected, we switch to the chosen process. Once it is done running, it breaks out of the loop so the scheduler can hold the lottery again. We also added a gtickets variable that keeps track of the total number of allocated tickets. It is initially zero, but is incremented when a process if allocated, and decremented when a process exits. As for the number of tickets a process is allocated, depends on its nice value. The number of tickets range from 40 (not nice at all with value -20) to 1 (very nice with value +19). The ticket gets this value by doing simple math: p->tickets = 40 - (p->priority + 20). 
+	- proc.h - added int tickets to struct proc to keep track of how many tickets a process has
+
+
+-----------------------------
+EXERCISE 4
+-----------------------------
+To run the test for this exercise, you have to run the lotterytest program. To do this, we did a 'make qemu-nox' to run the kernel. Once the kernel is running, we used the 'lotterytest' command to run the tests for correctly reading and setting a process's nice value. 
+
+Files modified:
+	- Makefile - Added the lotterytest program command
+
+Files added:
+	- lotterytest.c - contains the unit tests for the lottery scheduler implementation
+
+Test 1: forktest
+	This test forks 3 children with different priorities (by setting their nice value according to their child # value). Each child performs a cpu-intensive task - matrix multiplication. This test shows how each process progresses until they are all completed based on their priority.
+
