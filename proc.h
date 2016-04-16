@@ -68,7 +68,6 @@ struct proc {
   char name[16];               // Process name (debugging)
   int priority;		             // priority value
   int tickets;                 // total number of tickets
-  int run_times;               // times this process was selected by lottery
 };
 
 // Process memory is laid out contiguously, low addresses first:
