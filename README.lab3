@@ -22,6 +22,15 @@ Files added:
 -----------------------------
 EXERCISE 2
 -----------------------------
+Used xorshift pseudo-random number generator
+
+Files modified:
+        - Makefile - added randtest.c test program
+        - proc.c - this is where we added the uint random(void) function that r$
+        - files for adding a syscall: defs.h, syscall.h, sysproc.c, user.h, usys.S
+
+Files added:
+	- randtest.c - tests the random() syscall in different ranges. It also tests whether the distribution of random numbers are distributed evenly within a range by testing a range from 0 to 50 and printing the result out from the indexes array
 
 
 -----------------------------

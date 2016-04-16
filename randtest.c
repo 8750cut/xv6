@@ -29,15 +29,15 @@ test()
     pass = 1;
   }
 
-  int indexes[100];
+  int indexes[50];
 
   printf(1, "TESTING DISTRIBUTION FROM 0 TO 50\n");
-  for(i = 0; i < 100; i++)
+  for(i = 0; i < 50; i++)
   {
     indexes[i] = 0;
   }
 
-  int min = 0, max = 100;
+  int min = 0, max = 50;
   for(i = 0; i < 10000; i++)
   {
     x = random() % 50;
