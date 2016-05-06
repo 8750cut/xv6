@@ -32,7 +32,6 @@ char zeroes[BSIZE];
 uint freeinode = 1;
 uint freeblock;
 
-
 void balloc(int);
 void wsect(uint, void*);
 void winode(uint, struct dinode*);
@@ -101,6 +100,19 @@ main(int argc, char *argv[])
   sb.logstart = xint(2);
   sb.inodestart = xint(2+nlog);
   sb.bmapstart = xint(2+nlog+ninodeblocks);
+
+  for(i = 0; i < BLOCKGROUPS; i++)
+  {
+    int bgsize = (ninodeblocks + nbitmap + nblocks) / 10;
+
+    // for every group
+    int inodeoffset = i * bgsize;
+
+    int bmapoffset = inodeoffset + (ninodeblocks / 10);
+
+    sb.blockgroup[i].inodestart = inodeoffset;
+    sb.blockgroup[i].bmapstart = bmapoffset;
+  }
 
   printf("nmeta %d (boot, super, log blocks %u inode blocks %u, bitmap blocks %u) blocks %d total %d\n",
          nmeta, nlog, ninodeblocks, nbitmap, nblocks, FSSIZE);
