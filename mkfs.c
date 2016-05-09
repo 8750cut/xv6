@@ -15,16 +15,18 @@
 #define static_assert(a, b) do { switch (0) case 0: case (a): ; } while (0)
 #endif
 
-#define NINODES 200
+#define NINODES 500
 
 // Disk layout:
 // [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
 
-int nbitmap = FSSIZE/(BSIZE*8) + 1;
+// int nbitmap = FSSIZE/(BSIZE*8) + 1;
+int nbitmap = BLOCKGROUPS;
 int ninodeblocks = NINODES / IPB + 1;
 int nlog = LOGSIZE;  
 int nmeta;    // Number of meta blocks (boot, sb, nlog, inode, bitmap)
 int nblocks;  // Number of data blocks
+int ibpergroup = (NINODES/BLOCKGROUPS)/IPB + 1;
 
 int fsfd;
 struct superblock sb;
@@ -32,7 +34,7 @@ char zeroes[BSIZE];
 uint freeinode = 1;
 uint freeblock;
 
-void balloc(int);
+void balloc(int, uint);
 void wsect(uint, void*);
 void winode(uint, struct dinode*);
 void rinode(uint inum, struct dinode *ip);
@@ -63,6 +65,122 @@ xint(uint x)
   return y;
 }
 
+// int
+// main(int argc, char *argv[])
+// {
+//   int i, cc, fd;
+//   uint rootino, inum, off;
+//   struct dirent de;
+//   char buf[BSIZE];
+//   struct dinode din;
+
+
+//   static_assert(sizeof(int) == 4, "Integers must be 4 bytes!");
+
+//   if(argc < 2){
+//     fprintf(stderr, "Usage: mkfs fs.img files...\n");
+//     exit(1);
+//   }
+
+//   assert((BSIZE % sizeof(struct dinode)) == 0);
+//   assert((BSIZE % sizeof(struct dirent)) == 0);
+
+//   fsfd = open(argv[1], O_RDWR|O_CREAT|O_TRUNC, 0666);
+//   if(fsfd < 0){
+//     perror(argv[1]);
+//     exit(1);
+//   }
+
+//   // 1 fs block = 1 disk sector
+//   nmeta = 2 + nlog + ninodeblocks + nbitmap;
+//   nblocks = FSSIZE - nmeta;
+
+//   sb.size = xint(FSSIZE);
+//   sb.nblocks = xint(nblocks);
+//   sb.ninodes = xint(NINODES);
+//   sb.nlog = xint(nlog);
+//   sb.logstart = xint(2);
+//   sb.inodestart = xint(2+nlog);
+//   sb.bmapstart = xint(2+nlog+ninodeblocks);
+
+//   for(i = 0; i < BLOCKGROUPS; i++)
+//   {
+//     int bgsize = (ninodeblocks + nbitmap + nblocks) / 10;
+
+//     // for every group
+//     int inodeoffset = i * bgsize;
+
+//     int bmapoffset = inodeoffset + (ninodeblocks / 10);
+
+//     sb.blockgroup[i].inodestart = inodeoffset;
+//     sb.blockgroup[i].bmapstart = bmapoffset;
+//   }
+
+//   printf("nmeta %d (boot, super, log blocks %u inode blocks %u, bitmap blocks %u) blocks %d total %d\n",
+//          nmeta, nlog, ninodeblocks, nbitmap, nblocks, FSSIZE);
+
+//   freeblock = nmeta;     // the first free block that we can allocate
+
+//   for(i = 0; i < FSSIZE; i++)
+//     wsect(i, zeroes);
+
+//   memset(buf, 0, sizeof(buf));
+//   memmove(buf, &sb, sizeof(sb));
+//   wsect(1, buf);
+
+//   rootino = ialloc(T_DIR);
+//   assert(rootino == ROOTINO);
+
+//   bzero(&de, sizeof(de));
+//   de.inum = xshort(rootino);
+//   strcpy(de.name, ".");
+//   iappend(rootino, &de, sizeof(de));
+
+//   bzero(&de, sizeof(de));
+//   de.inum = xshort(rootino);
+//   strcpy(de.name, "..");
+//   iappend(rootino, &de, sizeof(de));
+
+//   for(i = 2; i < argc; i++){
+//     assert(index(argv[i], '/') == 0);
+
+//     if((fd = open(argv[i], 0)) < 0){
+//       perror(argv[i]);
+//       exit(1);
+//     }
+    
+//     // Skip leading _ in name when writing to file system.
+//     // The binaries are named _rm, _cat, etc. to keep the
+//     // build operating system from trying to execute them
+//     // in place of system binaries like rm and cat.
+//     if(argv[i][0] == '_')
+//       ++argv[i];
+
+//     inum = ialloc(T_FILE);
+
+//     bzero(&de, sizeof(de));
+//     de.inum = xshort(inum);
+//     strncpy(de.name, argv[i], DIRSIZ);
+//     iappend(rootino, &de, sizeof(de));
+
+//     while((cc = read(fd, buf, sizeof(buf))) > 0)
+//       iappend(inum, buf, cc);
+
+//     close(fd);
+//   }
+
+//   // fix size of root inode dir
+//   rinode(rootino, &din);
+//   off = xint(din.size);
+//   off = ((off/BSIZE) + 1) * BSIZE;
+//   din.size = xint(off);
+//   winode(rootino, &din);
+
+//   balloc(freeblock);
+
+//   exit(0);
+// }
+
 int
 main(int argc, char *argv[])
 {
@@ -90,32 +208,25 @@ main(int argc, char *argv[])
   }
 
   // 1 fs block = 1 disk sector
-  nmeta = 2 + nlog + ninodeblocks + nbitmap;
+  nmeta = 2 + nlog + (ibpergroup * BLOCKGROUPS) + nbitmap;
   nblocks = FSSIZE - nmeta;
 
-  sb.size = xint(FSSIZE);
+  sb.size = xint(BLOCKGROUPS * BPG);
   sb.nblocks = xint(nblocks);
   sb.ninodes = xint(NINODES);
   sb.nlog = xint(nlog);
   sb.logstart = xint(2);
-  sb.inodestart = xint(2+nlog);
-  sb.bmapstart = xint(2+nlog+ninodeblocks);
-
-  for(i = 0; i < BLOCKGROUPS; i++)
-  {
-    int bgsize = (ninodeblocks + nbitmap + nblocks) / 10;
-
-    // for every group
-    int inodeoffset = i * bgsize;
-
-    int bmapoffset = inodeoffset + (ninodeblocks / 10);
-
-    sb.blockgroup[i].inodestart = inodeoffset;
-    sb.blockgroup[i].bmapstart = bmapoffset;
-  }
+  sb.bgstart = xint(2+nlog);
+  sb.ibpergroup = xint(ibpergroup);
 
   printf("nmeta %d (boot, super, log blocks %u inode blocks %u, bitmap blocks %u) blocks %d total %d\n",
-         nmeta, nlog, ninodeblocks, nbitmap, nblocks, FSSIZE);
+         nmeta, nlog, ibpergroup*BLOCKGROUPS, nbitmap, nblocks, FSSIZE);
+
+  for(i=0; i<BLOCKGROUPS; i++){
+    int groupstart = sb.bgstart+(i*BPG);
+    int datablocks = BPG - (sb.ibpergroup+1);
+    printf("GROUP %d (inodestart %d bmstart %d datablockstart %d) data blocks %d total %d\n", i, groupstart, groupstart+sb.ibpergroup, groupstart+sb.ibpergroup+1, datablocks, BPG);
+  }
 
   freeblock = nmeta;     // the first free block that we can allocate
 
@@ -174,7 +285,13 @@ main(int argc, char *argv[])
   din.size = xint(off);
   winode(rootino, &din);
 
-  balloc(freeblock);
+  // balloc(freeblock);
+  for(i=0; i<BLOCKGROUPS; i++){
+    // balloc(int used, uint bmapstart)
+    int start = i*BPG;
+    int used = sb.ibpergroup + 1;
+    balloc(used, (start + sb.ibpergroup));
+  }
 
   exit(0);
 }
@@ -246,8 +363,24 @@ ialloc(ushort type)
   return inum;
 }
 
+// void
+// balloc(int used)
+// {
+//   uchar buf[BSIZE];
+//   int i;
+
+//   printf("balloc: first %d blocks have been allocated\n", used);
+//   assert(used < BSIZE*8);
+//   bzero(buf, BSIZE);
+//   for(i = 0; i < used; i++){
+//     buf[i/8] = buf[i/8] | (0x1 << (i%8));
+//   }
+//   printf("balloc: write bitmap block at sector %d\n", sb.bmapstart);
+//   wsect(sb.bmapstart, buf);
+// }
+
 void
-balloc(int used)
+balloc(int used, uint bmapstart)
 {
   uchar buf[BSIZE];
   int i;
@@ -258,8 +391,9 @@ balloc(int used)
   for(i = 0; i < used; i++){
     buf[i/8] = buf[i/8] | (0x1 << (i%8));
   }
-  printf("balloc: write bitmap block at sector %d\n", sb.bmapstart);
-  wsect(sb.bmapstart, buf);
+  printf("balloc: write bitmap block at sector %d\n", bmapstart);
+  wsect(bmapstart, buf);
+
 }
 
 #define min(a, b) ((a) < (b) ? (a) : (b))

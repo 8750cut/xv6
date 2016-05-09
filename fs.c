@@ -58,10 +58,13 @@ balloc(uint dev)
 
   bp = 0;
   for(b = 0; b < sb.size; b += BPB){
+    cprintf("b: %d\n", b);
     bp = bread(dev, BBLOCK(b, sb));
+    cprintf("block: %d\n", BBLOCK(b, sb));
     for(bi = 0; bi < BPB && b + bi < sb.size; bi++){
       m = 1 << (bi % 8);
       if((bp->data[bi/8] & m) == 0){  // Is block free?
+        cprintf("HERE!\n");
         bp->data[bi/8] |= m;  // Mark block in use.
         log_write(bp);
         brelse(bp);
@@ -164,8 +167,10 @@ iinit(int dev)
 {
   initlock(&icache.lock, "icache");
   readsb(dev, &sb);
-  cprintf("sb: size %d nblocks %d ninodes %d nlog %d logstart %d inodestart %d bmap start %d\n", sb.size,
-          sb.nblocks, sb.ninodes, sb.nlog, sb.logstart, sb.inodestart, sb.bmapstart);
+  // cprintf("sb: size %d nblocks %d ninodes %d nlog %d logstart %d inodestart %d bmap start %d\n", sb.size,
+  //         sb.nblocks, sb.ninodes, sb.nlog, sb.logstart, sb.inodestart, sb.bmapstart);
+  cprintf("sb: size %d nblocks %d ninodes %d nlog %d logstart %d bgstart %d ibpergroup %d\n", sb.size,
+          sb.nblocks, sb.ninodes, sb.nlog, sb.logstart, sb.bgstart, sb.ibpergroup);
 }
 
 static struct inode* iget(uint dev, uint inum);
