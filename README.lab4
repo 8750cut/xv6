@@ -25,3 +25,8 @@ Debugging:
 		GROUP 2 (inodestart 8224 bmstart 8237 datablockstart 8238) data blocks 4082 total 4096
 		GROUP 3 (inodestart 12320 bmstart 12333 datablockstart 12334) data blocks 4082 total 4096
 		GROUP 4 (inodestart 16416 bmstart 16429 datablockstart 16430) data blocks 4082 total 4096
+
+Unit Tests for Exercise 1:
+	Filename: ffs-test.c
+	To run the test, 'make qemu-nox'. Then 'ffs-test' to run the test program.
+	This test creates a directory and then makes a directory.
