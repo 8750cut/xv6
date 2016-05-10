@@ -174,6 +174,7 @@ UPROGS=\
 	_zombie\
 	_wolfietest\
 	_pgflt-test\
+	_ffs-test\
 
 fs.img: mkfs README wolfie_ascii.txt $(UPROGS)
 	./mkfs fs.img README wolfie_ascii.txt $(UPROGS)
