@@ -47,6 +47,7 @@ struct dinode {
 // Block containing inode i
 // #define IBLOCK(i, sb)     ((i) / IPB + sb.inodestart)
 #define IBLOCK(i, sb)     (sb.bgstart + (((i)/IPB)/sb.ibpergroup)*BPG + (((i)/IPB)%sb.ibpergroup))
+// #define IBLOCK(i, sb)     (sb.bgstart + (((i) / IPB) / sb.ibpergroup) * BPG)
 
 // #define IBLACK(i, bg)	  ((i) / IPB + bg.inodestart)
 
@@ -55,7 +56,7 @@ struct dinode {
 
 // Block of free map containing bit for block b
 // #define BBLOCK(b, sb) (b/BPB + sb.bmapstart)
-#define BBLOCK(b, sb) (sb.bgstart + ((b/BPB)/BPG)*BPG + sb.ibpergroup)
+#define BBLOCK(b, sb) (sb.bgstart + (b/BPG) + sb.ibpergroup)
 
 // #define BBLACK(b, bg) (b/BPB + bg.bmapstart)
 

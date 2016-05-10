@@ -1,14 +1,27 @@
 EXERCISE 1
+Original disk layout:
+[ boot block | sb block | log | inode blocks | free bit map | data blocks ]
 The disk layout has been changed to:
 [ boot block | sb block | log | inode blocks | bit map | data blocks | inode blocks | bit map | data blocks | ... ]
-
+We striped the inode blocks, free bit map, and datablocks across the number of groups (in our case, we set BLOCKGROUPS to 5).
 
 Files modified:
 	- fs.h
-		- modified struct superblock to keep track of where the block groups start and how many inode blocks are in each group
+		- defined BLOCKGROUPS (number of blockgroups)
+		- defined BPG (blocks per group)
+		- modified struct superblock to keep track of where the block groups start (bgstart) and how many inode blocks are in each group (ibpergroup) so we can calculate the offsets for each group
 		- modified IBLOCK(i, sb) to find the block containing inode i by checking for the group that the inode block is and then finding the inode block within the group
 		- modified BBLOCK(b, sb) to find the block for bit b by checking for the group that the bit belongs to and then finding the bitmap block within the group
 	- mkfs.c - changed disk layout
-		- Modified int main(int argc, char *argv[]) to accommodate for sb.bgstart and sb.ibpergroup. Replaced balloc(freeblock) to loop through all block groups and mark the inodes and bitmaps in each group in use
-		- modified balloc to take in additional argument (bmapstart) so we can mark bits in used within each group since bitmaps in the filesystem are not contiguous.
-	- param.h - changed FSSIZE to accommodate for groups that contain 4096 blocks
+		- Modified int main(int argc, char *argv[]) to accommodate for sb.bgstart and sb.ibpergroup. Replaced balloc(freeblock) to loop through all block groups and mark the inodes and bitmaps in each group in use at the end of main.
+		- modified balloc to take in additional argument (bmapstart) so we can mark bits as used (inode blocks and bitmaps) within each group since bitmaps in the filesystem are not contiguous.
+	- param.h - changed FSSIZE to accommodate for groups that contain 4096 blocks - made it a multiple of 4096.
+
+Debugging:
+	To see the allocated blocks, we run 'make qemu-nox'. The disk layout is printed out, as well as the group layout:
+		nmeta 102 (boot, super, log blocks 30 inode blocks 65, bitmap blocks 5) blocks 20410 total 20512
+		GROUP 0 (inodestart 32 bmstart 45 datablockstart 46) data blocks 4082 total 4096
+		GROUP 1 (inodestart 4128 bmstart 4141 datablockstart 4142) data blocks 4082 total 4096
+		GROUP 2 (inodestart 8224 bmstart 8237 datablockstart 8238) data blocks 4082 total 4096
+		GROUP 3 (inodestart 12320 bmstart 12333 datablockstart 12334) data blocks 4082 total 4096
+		GROUP 4 (inodestart 16416 bmstart 16429 datablockstart 16430) data blocks 4082 total 4096
